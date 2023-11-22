@@ -229,6 +229,11 @@ AddOption('--disable-pulseaudio',
           action='store_true',
           help='disable PulseAudio support in tools')
 
+AddOption('--disable-wav',
+          dest='disable_wav',
+          action='store_true',
+          help='disable WAV support in tools')
+
 AddOption('--with-openfec-includes',
           dest='with_openfec_includes',
           action='store',
@@ -828,6 +833,10 @@ else:
         if not GetOption('disable_pulseaudio') and meta.platform in ['linux']:
             env.Append(ROC_TARGETS=[
                 'target_pulseaudio',
+            ])
+        if not GetOption('disable_wav') and meta.platform in ['linux']:
+            env.Append(ROC_TARGETS=[
+                'target_wav',
             ])
 
     if 'target_gnu' not in env['ROC_TARGETS']:

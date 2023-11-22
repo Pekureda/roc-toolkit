@@ -58,6 +58,9 @@ void BackendMap::register_backends_() {
     sox_backend_.reset(new (sox_backend_) SoxBackend);
     backends_.push_back(sox_backend_.get());
 #endif // ROC_TARGET_SOX
+#ifdef ROC_TARGET_WAV
+// TODO
+#endif // ROC_TARGET_WAV
 }
 
 void BackendMap::register_drivers_() {

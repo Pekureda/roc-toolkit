@@ -26,6 +26,10 @@
 #include "roc_sndio/sox_backend.h"
 #endif // ROC_TARGET_SOX
 
+#ifdef ROC_TARGET_WAV
+#include "roc_sndio/wav_backend.h"
+#endif // ROC_TARGET_WAV
+
 namespace roc {
 namespace sndio {
 
