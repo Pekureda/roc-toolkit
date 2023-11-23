@@ -16,11 +16,11 @@
 namespace roc {
 namespace sndio {
 
-void WAVBackend::discover_drivers(core::Array<DriverInfo, MaxDrivers>& driver_list) {
+void WavBackend::discover_drivers(core::Array<DriverInfo, MaxDrivers>& driver_list) {
     // TODO
 }
 
-IDevice* WAVBackend::open_device(DeviceType device_type,
+IDevice* WavBackend::open_device(DeviceType device_type,
                                  DriverType driver_type,
                                  const char* driver,
                                  const char* path,

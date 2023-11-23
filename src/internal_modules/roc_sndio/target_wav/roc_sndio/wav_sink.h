@@ -6,7 +6,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-//! @file roc_sndio/target_WAV/roc_sndio/WAV_sink.h
+//! @file roc_sndio/target_wav/roc_sndio/wav_sink.h
 //! @brief WAV sink.
 
 #ifndef ROC_SNDIO_WAV_SINK_H_
@@ -30,12 +30,12 @@ namespace sndio {
 //! @remarks
 //!  Writes samples to output file or device.
 //!  Supports multiple drivers for different file types and audio systems.
-class WAVSink : public ISink, public core::NonCopyable<> {
+class WavSink : public ISink, public core::NonCopyable<> {
 public:
     //! Initialize.
-    WAVSink(core::IArena& arena, const Config& config);
+    WavSink(core::IArena& arena, const Config& config);
 
-    virtual ~WAVSink();
+    virtual ~WavSink();
 
     //! Check if the object was successfully constructed.
     bool is_valid() const;

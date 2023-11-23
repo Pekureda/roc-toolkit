@@ -28,12 +28,12 @@ namespace roc {
 namespace sndio {
 
 //! WAV source.
-class WAVSource : public ISource, private core::NonCopyable<> {
+class WavSource : public ISource, private core::NonCopyable<> {
 public:
     //! Initialize.
-    WAVSource(core::IArena& arena, const Config& config);
+    WavSource(core::IArena& arena, const Config& config);
 
-    ~WAVSource();
+    ~WavSource();
 
     //! Open input file or device.
     //!
@@ -79,7 +79,7 @@ public:
 
 private:
     bool valid_;
-    bool alreadyOpened_;
+    bool already_opened_;
     bool eof_;
     bool paused_;
     core::StringBuffer input_name_;

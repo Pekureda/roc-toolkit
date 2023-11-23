@@ -6,7 +6,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-//! @file roc_sndio/target_WAV/roc_sndio/WAV_backend.h
+//! @file roc_sndio/target_wav/roc_sndio/wav_backend.h
 //! @brief WAV backend.
 
 #ifndef ROC_SNDIO_WAV_BACKEND_H_
@@ -22,9 +22,9 @@ namespace roc {
 namespace sndio {
 
 //! WAV backend.
-class WAVBackend : public IBackend, core::NonCopyable<> {
+class WavBackend : public IBackend, core::NonCopyable<> {
 public:
-    WAVBackend();
+    WavBackend();
 
     //! Append supported drivers to the list.
     virtual void discover_drivers(core::Array<DriverInfo, MaxDrivers>& driver_list);

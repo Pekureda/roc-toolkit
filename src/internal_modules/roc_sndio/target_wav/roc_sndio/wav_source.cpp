@@ -14,7 +14,7 @@
 namespace roc {
 namespace sndio {
 
-WAVSource::WAVSource(core::IArena& arena, const Config& config)
+WavSource::WavSource(core::IArena& arena, const Config& config)
     : valid_(false)
     , eof_(false)
     , paused_(false)
@@ -31,11 +31,11 @@ WAVSource::WAVSource(core::IArena& arena, const Config& config)
     valid_ = true;
 }
 
-WAVSource::~WAVSource() {
+WavSource::~WavSource() {
     close_();
 }
 
-bool WAVSource::open(const char* path) {
+bool WavSource::open(const char* path) {
     roc_panic_if(!valid_);
 
     roc_log(LogInfo, "wav source: opening: path=%s", path);
@@ -56,15 +56,15 @@ bool WAVSource::open(const char* path) {
         return false;
     }
 
-    alreadyOpened_ = true;
+    already_opened_ = true;
     return true;
 }
 
-DeviceType WAVSource::type() const {
+DeviceType WavSource::type() const {
     return DeviceType_Source;
 }
 
-DeviceState WAVSource::state() const {
+DeviceState WavSource::state() const {
     roc_panic_if(!valid_);
 
     if (paused_) {
@@ -74,7 +74,7 @@ DeviceState WAVSource::state() const {
     }
 }
 
-bool WAVSource::setup_buffer_() {
+bool WavSource::setup_buffer_() {
     // TODO possibly reuse sample_spec from config but update {sample rate, channel count(how, meaning of ChannelSet?)}
     audio::SampleSpec sample_spec; // Dummy for conversion -> how to take care of conversion? Code for it shouldn't be copied -!> improve arch
     buffer_size_ = sample_spec.ns_2_samples_overall(frame_length_); // Now it's incorrect
@@ -91,8 +91,8 @@ bool WAVSource::setup_buffer_() {
     return true;
 }
 
-bool WAVSource::open_() {
-    if (alreadyOpened_) {
+bool WavSource::open_() {
+    if (already_opened_) {
         roc_panic("wav source: already opened");
     }
 
@@ -116,7 +116,7 @@ bool WAVSource::open_() {
     return true;
 }
 
-bool WAVSource::setup_names_(const char* path) {
+bool WavSource::setup_names_(const char* path) {
     if (path) {
         if (!input_name_.assign(path)) {
             roc_log(LogError, "sox source: can't allocate string");
@@ -127,7 +127,7 @@ bool WAVSource::setup_names_(const char* path) {
     return true;
 }
 
-void WAVSource::pause() {
+void WavSource::pause() {
     roc_panic_if(!valid_);
 
     if (paused_) {
@@ -143,7 +143,7 @@ void WAVSource::pause() {
     paused_ = true;
 }
 
-bool WAVSource::resume() {
+bool WavSource::resume() {
     roc_panic_if(!valid_);
 
     if (!paused_) {
@@ -164,7 +164,7 @@ bool WAVSource::resume() {
     return true;
 }
 
-bool WAVSource::restart() {
+bool WavSource::restart() {
     roc_panic_if(!valid_);
 
     roc_log(LogDebug, "sox source: restarting: input=%s", input_name_.c_str());
@@ -196,24 +196,24 @@ bool WAVSource::restart() {
     return true;
 }
 
-void WAVSource::close_() {
+void WavSource::close_() {
     // TODO make sure it's everything that must be done to close
     drwav_uninit(&wav_);
 }
 
-core::nanoseconds_t WAVSource::latency() const {
+core::nanoseconds_t WavSource::latency() const {
     return 0;
 }
 
-bool WAVSource::has_latency() const {
+bool WavSource::has_latency() const {
     return false;
 }
 
-bool WAVSource::has_clock() const {
+bool WavSource::has_clock() const {
     return false;
 }
 
-void WAVSource::reclock(core::nanoseconds_t timestamp) {
+void WavSource::reclock(core::nanoseconds_t timestamp) {
     // no-op
 }
 
