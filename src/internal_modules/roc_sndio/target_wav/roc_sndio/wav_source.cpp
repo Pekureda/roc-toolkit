@@ -15,18 +15,26 @@ namespace roc {
 namespace sndio {
 
 WavSource::WavSource(core::IArena& arena, const Config& config)
-    : valid_(false)
+    : input_name_(arena)
+    , buffer_(arena)
+    , buffer_size_(0)
     , eof_(false)
     , paused_(false)
-    , input_name_(arena)
-    , input_(NULL)
-    , buffer_(arena)
-    , buffer_size_(0) { 
+    , valid_(false) {
     BackendMap::instance(); // Is there any reason it should be there as in SoX?
 
-    // Should other fields of config be ignored, no logs generated
-    // or should some logs be generated if values are not `default`
+    if (config.sample_spec.num_channels() == 0) {
+        roc_log(LogError, "wav source: # of channels is zero");
+        return;
+    }
+
+    if (config.latency != 0) {
+        roc_log(LogError, "wav source: setting io latency not supported by wav backend");
+        return;
+    }
+
     frame_length_ = config.frame_length;
+    sample_spec_ = config.sample_spec;
 
     valid_ = true;
 }
@@ -40,7 +48,7 @@ bool WavSource::open(const char* path) {
 
     roc_log(LogInfo, "wav source: opening: path=%s", path);
 
-    if (wav_.pUserData != NULL) {
+    if (file_opened_) {
         roc_panic("wav source: can't call open() more than once");
     }
 
@@ -56,7 +64,7 @@ bool WavSource::open(const char* path) {
         return false;
     }
 
-    already_opened_ = true;
+    file_opened_ = true;
     return true;
 }
 
@@ -75,9 +83,26 @@ DeviceState WavSource::state() const {
 }
 
 bool WavSource::setup_buffer_() {
-    // TODO possibly reuse sample_spec from config but update {sample rate, channel count(how, meaning of ChannelSet?)}
-    audio::SampleSpec sample_spec; // Dummy for conversion -> how to take care of conversion? Code for it shouldn't be copied -!> improve arch
-    buffer_size_ = sample_spec.ns_2_samples_overall(frame_length_); // Now it's incorrect
+    // TODO the logic below can be extracted to helper method at least, consider TODO
+    // below
+    // const float total_samples =
+    //     roundf(float(frame_length_) / core::Second * wav_.sampleRate);
+    // const size_t min_val = ROC_MIN_OF(size_t);
+    // const size_t max_val = ROC_MAX_OF(size_t);
+
+    // if (total_samples * wav_.channels <= min_val) {
+    //     buffer_size_ = min_val / wav_.channels * wav_.channels; // 0
+    // } else if (total_samples * wav_.channels >= max_val) {
+    //     buffer_size_ = max_val / wav_.channels * wav_.channels;
+    // } else {
+    //     buffer_size_ = (size_t)total_samples * wav_.channels; // TODO see if this logic is
+    //                                                           // sufficient - Change will
+    //                                                           // probably require
+    //                                                           // tinkering with SampleSpec
+    //                                                           // but let's skip it at this
+    //                                                           // point
+    // }
+    buffer_size_ = sample_spec_.ns_2_samples_overall(frame_length_); // TODO check later if it properly converts. If not try code above
 
     if (buffer_size_ == 0) {
         roc_log(LogError, "wav source: buffer size is zero");
@@ -92,18 +117,27 @@ bool WavSource::setup_buffer_() {
 }
 
 bool WavSource::open_() {
-    if (already_opened_) {
+    if (file_opened_) {
         roc_panic("wav source: already opened");
     }
 
     if (!drwav_init_file(&wav_, input_name_.c_str(), NULL)) {
-        roc_log(LogInfo, "wav source: can't open: input=%s",
-                input_name_.c_str());
+        roc_log(LogInfo, "wav source: can't open: input=%s", input_name_.c_str());
         return false;
     }
 
-    // TODO revisit
-    drwav_uint64 frames_read = drwav_read_pcm_frames(&wav_, wav_.totalPCMFrameCount, input_);
+    if (wav_.sampleRate != sample_spec_.sample_rate()) {
+        roc_log(LogError,
+                "wav source: requested sampling rate %lu but file has %lu: input=%s",
+                (unsigned long)wav_.sampleRate, (unsigned long)sample_spec_.sample_rate(),
+                input_name_.c_str());
+        close_();
+        return false;
+    }
+
+    sample_spec_.channel_set().set_channel_range(
+        0, sample_spec_.channel_set().max_channels(), false);
+    sample_spec_.channel_set().set_channel_range(0, wav_.channels, true);
 
     roc_log(LogInfo,
             "wav source:"
@@ -128,38 +162,12 @@ bool WavSource::setup_names_(const char* path) {
 }
 
 void WavSource::pause() {
-    roc_panic_if(!valid_);
-
-    if (paused_) {
-        return;
-    }
-
-    if (!input_) {
-        roc_panic("wav source: pause: non-open input file or device");
-    }
-
-    roc_log(LogDebug, "wav source: pausing: input=%s", input_name_.c_str());
-
+    // no-op - but the state is updated
     paused_ = true;
 }
 
 bool WavSource::resume() {
-    roc_panic_if(!valid_);
-
-    if (!paused_) {
-        return true;
-    }
-
-    roc_log(LogDebug, "wav source: resuming: input=%s", input_name_.c_str());
-
-    if (!input_) {
-        if (!open_()) { // TODO Unnecessary depth -> move to outside if;; Name of the file must be known beforehand so an open operations should have been performed already, possibly guaranteed fail.
-            roc_log(LogError, "wav source: open failed when resuming: input=%s",
-                input_name_.c_str());
-            return false;
-        }
-    }
-
+    // no-op - but the state is updated
     paused_ = false;
     return true;
 }
@@ -167,28 +175,13 @@ bool WavSource::resume() {
 bool WavSource::restart() {
     roc_panic_if(!valid_);
 
-    roc_log(LogDebug, "sox source: restarting: input=%s", input_name_.c_str());
+    roc_log(LogDebug, "wav source: restarting: input=%s", input_name_.c_str());
 
-    // TODO
-    // if (is_file_ && !eof_) {
-    //     if (!seek_(0)) {
-    //         roc_log(LogError,
-    //                 "sox source: seek failed when restarting: driver=%s input=%s",
-    //                 driver_name_.c_str(), input_name_.c_str());
-    //         return false;
-    //     }
-    // } else {
-    //     if (input_) {
-    //         close_();
-    //     }
-
-    //     if (!open_()) {
-    //         roc_log(LogError,
-    //                 "sox source: open failed when restarting: driver=%s input=%s",
-    //                 driver_name_.c_str(), input_name_.c_str());
-    //         return false;
-    //     }
-    // }
+    if (!seek_(0)) {
+        roc_log(LogError, "wav source: seek failed when restarting: input=%s",
+                input_name_.c_str());
+        return false;
+    }
 
     paused_ = false;
     eof_ = false;
@@ -197,6 +190,11 @@ bool WavSource::restart() {
 }
 
 void WavSource::close_() {
+    if (!file_opened_) {
+        return;
+    }
+
+    file_opened_ = false;
     // TODO make sure it's everything that must be done to close
     drwav_uninit(&wav_);
 }
@@ -215,7 +213,85 @@ bool WavSource::has_clock() const {
 
 void WavSource::reclock(core::nanoseconds_t timestamp) {
     // no-op
+    (void)timestamp;
 }
 
+bool WavSource::seek_(drwav_uint64 target_frame_index) {
+    return drwav_seek_to_pcm_frame(&wav_, target_frame_index);
 }
+
+bool WavSource::read(audio::Frame& frame) {
+    roc_panic_if(!valid_);
+
+    if (paused_ || eof_) {
+        return false;
+    }
+
+    audio::sample_t* frame_data = frame.samples();
+    size_t frame_left = frame.num_samples();
+
+    audio::sample_t* buffer_data = buffer_.data();
+
+    while (frame_left != 0) {
+        size_t n_samples = frame_left;
+        if (n_samples > buffer_size_) {
+            n_samples = buffer_size_;
+        }
+
+        // n_samples = drwav_read_pcm_frames(&wav_, n_samples, buffer_data); // Convert
+        // s16/s32/f32?
+        n_samples = drwav_read_pcm_frames_f32(&wav_, n_samples, buffer_data); // Conveniently
+                                                                              // I do not
+                                                                              // need to
+                                                                              // convert
+                                                                              // manually
+        if (n_samples == 0) {
+            roc_log(LogDebug, "wav source: got eof from wav");
+            eof_ = true;
+            break;
+        }
+
+        memcpy(frame_data, buffer_data, n_samples * sizeof(audio::sample_t));
+
+        frame_data += n_samples;
+        frame_left -= n_samples;
+    }
+
+    if (frame_left == frame.num_samples()) {
+        return false;
+    }
+
+    if (frame_left != 0) {
+        memset(frame_data, 0, frame_left * sizeof(audio::sample_t));
+    }
+
+    return true;
 }
+
+audio::SampleSpec WavSource::sample_spec() const {
+    roc_panic_if(!valid_);
+
+    if (!file_opened_) {
+        roc_panic("wav source: sample_spec(): non-open output file or device"); // ASK
+                                                                                // Typo in
+                                                                                // sample_rate()
+                                                                                // in SoX
+                                                                                // ??
+    }
+
+    if (wav_.channels == 1) {
+        return audio::SampleSpec(size_t(wav_.sampleRate), audio::ChanLayout_Surround,
+                                 audio::ChanOrder_Smpte, audio::ChanMask_Surround_Mono);
+    }
+
+    if (wav_.channels == 2) {
+        return audio::SampleSpec(size_t(wav_.sampleRate), audio::ChanLayout_Surround,
+                                 audio::ChanOrder_Smpte, audio::ChanMask_Surround_Stereo);
+    }
+
+    // TODO consider more channels
+    roc_panic("sox source: unsupported channel count");
+}
+
+} // namespace sndio
+} // namespace roc

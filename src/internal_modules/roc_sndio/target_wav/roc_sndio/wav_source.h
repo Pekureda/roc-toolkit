@@ -9,8 +9,8 @@
 //! @file roc_sndio/target_wav/roc_sndio/wav_source.h
 //! @brief WAV source.
 
-#ifndef ROC_SNDIO_WAV_SOURCE_H_ 
-#define ROC_SNDIO_WAV_SOURCE_H_ 
+#ifndef ROC_SNDIO_WAV_SOURCE_H_
+#define ROC_SNDIO_WAV_SOURCE_H_
 
 #include <dr_wav.h>
 
@@ -42,7 +42,7 @@ public:
     //!
     //! @remarks
     //!  If @p path is NULL, defaults are used.
-    bool open(const char* path);
+    bool open(const char* path); // ASK What are those defaults?
 
     //! Get device type.
     virtual DeviceType type() const;
@@ -57,10 +57,10 @@ public:
     virtual bool resume();
 
     //! Restart reading from the beginning.
-    virtual bool restart(); // TODO
+    virtual bool restart();
 
     //! Get sample specification of the source.
-    virtual audio::SampleSpec sample_spec() const; // TODO
+    virtual audio::SampleSpec sample_spec() const;
 
     //! Get latency of the source.
     virtual core::nanoseconds_t latency() const;
@@ -75,24 +75,30 @@ public:
     virtual void reclock(core::nanoseconds_t timestamp);
 
     //! Read frame.
-    virtual bool read(audio::Frame& frame); // TODO
+    virtual bool read(audio::Frame& frame);
 
 private:
-    bool valid_;
-    bool already_opened_;
-    bool eof_;
-    bool paused_;
-    core::StringBuffer input_name_;
-    drwav wav_;
-    drwav_int32* input_;
-    core::Array<drwav_int32> buffer_;
-    size_t buffer_size_;
-    core::nanoseconds_t frame_length_;
-
     bool setup_names_(const char* path);
     bool open_();
     void close_();
     bool setup_buffer_();
+    bool seek_(drwav_uint64 target_frame_index); // TODO Probably should be renamed to
+                                                 // something closer to at_ or
+                                                 // go_to_index_
+
+    core::StringBuffer input_name_;
+    drwav wav_;
+
+    core::Array<audio::sample_t> buffer_; // TODO Consider static assert with float type
+                                          // in case anything changes
+    size_t buffer_size_;
+    core::nanoseconds_t frame_length_;
+    audio::SampleSpec sample_spec_;
+
+    bool file_opened_;
+    bool eof_;
+    bool paused_;
+    bool valid_;
 };
 
 } // namespace sndio

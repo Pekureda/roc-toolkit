@@ -8,8 +8,8 @@
 
 #define DR_WAV_IMPLEMENTATION
 
-#include "roc_core/log.h"
 #include "roc_sndio/wav_backend.h"
+#include "roc_core/log.h"
 #include "roc_sndio/wav_sink.h"
 #include "roc_sndio/wav_source.h"
 
@@ -29,7 +29,6 @@ IDevice* WavBackend::open_device(DeviceType device_type,
     // TODO
     return NULL;
 }
-
 
 } // namespace sndio
 } // namespace roc
