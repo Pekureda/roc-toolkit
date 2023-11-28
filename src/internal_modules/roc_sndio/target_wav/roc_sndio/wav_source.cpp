@@ -82,35 +82,144 @@ DeviceState WavSource::state() const {
     }
 }
 
-bool WavSource::setup_buffer_() {
-    // TODO the logic below can be extracted to helper method at least, consider TODO
-    // below
-    // const float total_samples =
-    //     roundf(float(frame_length_) / core::Second * wav_.sampleRate);
-    // const size_t min_val = ROC_MIN_OF(size_t);
-    // const size_t max_val = ROC_MAX_OF(size_t);
+void WavSource::pause() {
+    // no-op - but the state is updated
+    paused_ = true;
+}
 
-    // if (total_samples * wav_.channels <= min_val) {
-    //     buffer_size_ = min_val / wav_.channels * wav_.channels; // 0
-    // } else if (total_samples * wav_.channels >= max_val) {
-    //     buffer_size_ = max_val / wav_.channels * wav_.channels;
-    // } else {
-    //     buffer_size_ = (size_t)total_samples * wav_.channels; // TODO see if this logic is
-    //                                                           // sufficient - Change will
-    //                                                           // probably require
-    //                                                           // tinkering with SampleSpec
-    //                                                           // but let's skip it at this
-    //                                                           // point
-    // }
-    buffer_size_ = sample_spec_.ns_2_samples_overall(frame_length_); // TODO check later if it properly converts. If not try code above
+bool WavSource::resume() {
+    // no-op - but the state is updated
+    paused_ = false;
+    return true;
+}
 
-    if (buffer_size_ == 0) {
-        roc_log(LogError, "wav source: buffer size is zero");
+bool WavSource::restart() {
+    roc_panic_if(!valid_);
+
+    roc_log(LogDebug, "wav source: restarting: input=%s", input_name_.c_str());
+
+    if (!seek_(0)) {
+        roc_log(LogError, "wav source: seek failed when restarting: input=%s",
+                input_name_.c_str());
         return false;
     }
-    if (!buffer_.resize(buffer_size_)) {
-        roc_log(LogError, "wav source: can't allocate sample buffer");
+
+    paused_ = false;
+    eof_ = false;
+
+    return true;
+}
+
+audio::SampleSpec WavSource::sample_spec() const {
+    roc_panic_if(!valid_);
+
+    if (!file_opened_) {
+        roc_panic(
+            "wav source: sample_spec(): non-open output file or device"); // ASK
+                                                                          // Typo in
+                                                                          // sample_rate()
+                                                                          // in SoX
+                                                                          // ??
+    }
+
+    if (wav_.channels == 1) {
+        return audio::SampleSpec(size_t(wav_.sampleRate), audio::ChanLayout_Surround,
+                                 audio::ChanOrder_Smpte, audio::ChanMask_Surround_Mono);
+    }
+
+    if (wav_.channels == 2) {
+        return audio::SampleSpec(size_t(wav_.sampleRate), audio::ChanLayout_Surround,
+                                 audio::ChanOrder_Smpte, audio::ChanMask_Surround_Stereo);
+    }
+
+    // TODO consider more channels
+    roc_panic("sox source: unsupported channel count");
+}
+
+core::nanoseconds_t WavSource::latency() const {
+    return 0;
+}
+
+bool WavSource::has_latency() const {
+    roc_panic_if(!valid_);
+
+    if (!file_opened_) {
+        roc_panic("wav source: has_latency(): non-open input file or device");
+    }
+
+    return false;
+}
+
+bool WavSource::has_clock() const {
+    roc_panic_if(!valid_);
+
+    if (!file_opened_) {
+        roc_panic("wav source: has_clock(): non-open input file or device");
+    }
+
+    return false;
+}
+
+void WavSource::reclock(core::nanoseconds_t timestamp) {
+    // no-op
+    (void)timestamp;
+}
+
+bool WavSource::read(audio::Frame& frame) {
+    roc_panic_if(!valid_);
+
+    if (paused_ || eof_) {
         return false;
+    }
+
+    audio::sample_t* frame_data = frame.samples();
+    size_t frame_left = frame.num_samples();
+
+    audio::sample_t* buffer_data = buffer_.data();
+
+    while (frame_left != 0) {
+        size_t n_samples = frame_left;
+        if (n_samples > buffer_size_) {
+            n_samples = buffer_size_;
+        }
+
+        // n_samples = drwav_read_pcm_frames(&wav_, n_samples, buffer_data); // Convert
+        // s16/s32/f32?
+        n_samples =
+            drwav_read_pcm_frames_f32(&wav_, n_samples, buffer_data); // Conveniently
+                                                                      // I do not
+                                                                      // need to
+                                                                      // convert
+                                                                      // manually
+        if (n_samples == 0) {
+            roc_log(LogDebug, "wav source: got eof from wav");
+            eof_ = true;
+            break;
+        }
+
+        memcpy(frame_data, buffer_data, n_samples * sizeof(audio::sample_t));
+
+        frame_data += n_samples;
+        frame_left -= n_samples;
+    }
+
+    if (frame_left == frame.num_samples()) {
+        return false;
+    }
+
+    if (frame_left != 0) {
+        memset(frame_data, 0, frame_left * sizeof(audio::sample_t));
+    }
+
+    return true;
+}
+
+bool WavSource::setup_names_(const char* path) {
+    if (path) {
+        if (!input_name_.assign(path)) {
+            roc_log(LogError, "sox source: can't allocate string");
+            return false;
+        }
     }
 
     return true;
@@ -150,45 +259,6 @@ bool WavSource::open_() {
     return true;
 }
 
-bool WavSource::setup_names_(const char* path) {
-    if (path) {
-        if (!input_name_.assign(path)) {
-            roc_log(LogError, "sox source: can't allocate string");
-            return false;
-        }
-    }
-
-    return true;
-}
-
-void WavSource::pause() {
-    // no-op - but the state is updated
-    paused_ = true;
-}
-
-bool WavSource::resume() {
-    // no-op - but the state is updated
-    paused_ = false;
-    return true;
-}
-
-bool WavSource::restart() {
-    roc_panic_if(!valid_);
-
-    roc_log(LogDebug, "wav source: restarting: input=%s", input_name_.c_str());
-
-    if (!seek_(0)) {
-        roc_log(LogError, "wav source: seek failed when restarting: input=%s",
-                input_name_.c_str());
-        return false;
-    }
-
-    paused_ = false;
-    eof_ = false;
-
-    return true;
-}
-
 void WavSource::close_() {
     if (!file_opened_) {
         return;
@@ -199,98 +269,49 @@ void WavSource::close_() {
     drwav_uninit(&wav_);
 }
 
-core::nanoseconds_t WavSource::latency() const {
-    return 0;
-}
+bool WavSource::setup_buffer_() {
+    // TODO the logic below can be extracted to helper method at least, consider TODO
+    // below
+    // const float total_samples =
+    //     roundf(float(frame_length_) / core::Second * wav_.sampleRate);
+    // const size_t min_val = ROC_MIN_OF(size_t);
+    // const size_t max_val = ROC_MAX_OF(size_t);
 
-bool WavSource::has_latency() const {
-    return false;
-}
+    // if (total_samples * wav_.channels <= min_val) {
+    //     buffer_size_ = min_val / wav_.channels * wav_.channels; // 0
+    // } else if (total_samples * wav_.channels >= max_val) {
+    //     buffer_size_ = max_val / wav_.channels * wav_.channels;
+    // } else {
+    //     buffer_size_ = (size_t)total_samples * wav_.channels; // TODO see if this logic
+    //     is
+    //                                                           // sufficient - Change
+    //                                                           will
+    //                                                           // probably require
+    //                                                           // tinkering with
+    //                                                           SampleSpec
+    //                                                           // but let's skip it at
+    //                                                           this
+    //                                                           // point
+    // }
+    buffer_size_ = sample_spec_.ns_2_samples_overall(frame_length_); // TODO check later
+                                                                     // if it properly
+                                                                     // converts. If not
+                                                                     // try code above
 
-bool WavSource::has_clock() const {
-    return false;
-}
-
-void WavSource::reclock(core::nanoseconds_t timestamp) {
-    // no-op
-    (void)timestamp;
-}
-
-bool WavSource::seek_(drwav_uint64 target_frame_index) {
-    return drwav_seek_to_pcm_frame(&wav_, target_frame_index);
-}
-
-bool WavSource::read(audio::Frame& frame) {
-    roc_panic_if(!valid_);
-
-    if (paused_ || eof_) {
+    if (buffer_size_ == 0) {
+        roc_log(LogError, "wav source: buffer size is zero");
         return false;
     }
-
-    audio::sample_t* frame_data = frame.samples();
-    size_t frame_left = frame.num_samples();
-
-    audio::sample_t* buffer_data = buffer_.data();
-
-    while (frame_left != 0) {
-        size_t n_samples = frame_left;
-        if (n_samples > buffer_size_) {
-            n_samples = buffer_size_;
-        }
-
-        // n_samples = drwav_read_pcm_frames(&wav_, n_samples, buffer_data); // Convert
-        // s16/s32/f32?
-        n_samples = drwav_read_pcm_frames_f32(&wav_, n_samples, buffer_data); // Conveniently
-                                                                              // I do not
-                                                                              // need to
-                                                                              // convert
-                                                                              // manually
-        if (n_samples == 0) {
-            roc_log(LogDebug, "wav source: got eof from wav");
-            eof_ = true;
-            break;
-        }
-
-        memcpy(frame_data, buffer_data, n_samples * sizeof(audio::sample_t));
-
-        frame_data += n_samples;
-        frame_left -= n_samples;
-    }
-
-    if (frame_left == frame.num_samples()) {
+    if (!buffer_.resize(buffer_size_)) {
+        roc_log(LogError, "wav source: can't allocate sample buffer");
         return false;
-    }
-
-    if (frame_left != 0) {
-        memset(frame_data, 0, frame_left * sizeof(audio::sample_t));
     }
 
     return true;
 }
 
-audio::SampleSpec WavSource::sample_spec() const {
-    roc_panic_if(!valid_);
-
-    if (!file_opened_) {
-        roc_panic("wav source: sample_spec(): non-open output file or device"); // ASK
-                                                                                // Typo in
-                                                                                // sample_rate()
-                                                                                // in SoX
-                                                                                // ??
-    }
-
-    if (wav_.channels == 1) {
-        return audio::SampleSpec(size_t(wav_.sampleRate), audio::ChanLayout_Surround,
-                                 audio::ChanOrder_Smpte, audio::ChanMask_Surround_Mono);
-    }
-
-    if (wav_.channels == 2) {
-        return audio::SampleSpec(size_t(wav_.sampleRate), audio::ChanLayout_Surround,
-                                 audio::ChanOrder_Smpte, audio::ChanMask_Surround_Stereo);
-    }
-
-    // TODO consider more channels
-    roc_panic("sox source: unsupported channel count");
+bool WavSource::seek_(drwav_uint64 target_frame_index) {
+    return drwav_seek_to_pcm_frame(&wav_, target_frame_index);
 }
 
 } // namespace sndio

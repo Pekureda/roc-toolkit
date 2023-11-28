@@ -12,8 +12,6 @@
 #ifndef ROC_SNDIO_WAV_SINK_H_
 #define ROC_SNDIO_WAV_SINK_H_
 
-#include <dr_wav.h>
-
 #include "roc_audio/sample_spec.h"
 #include "roc_core/array.h"
 #include "roc_core/iarena.h"
@@ -22,6 +20,8 @@
 #include "roc_packet/units.h"
 #include "roc_sndio/config.h"
 #include "roc_sndio/isink.h"
+
+#include "wav_header.h"
 
 namespace roc {
 namespace sndio {
@@ -40,15 +40,14 @@ public:
     //! Check if the object was successfully constructed.
     bool is_valid() const;
 
-    //! Open output file or device.
+    //! Open output file.
     //!
     //! @b Parameters
-    //!  - @p driver is output driver name;
     //!  - @p path is output file or device name, "-" for stdout.
     //!
     //! @remarks
-    //!  If @p driver or @p path are NULL, defaults are used.
-    bool open(const char* driver, const char* path);
+    //!  If @p path is NULL, defaults are used.
+    bool open(const char* path);
 
     //! Get device type.
     virtual DeviceType type() const;
@@ -79,6 +78,23 @@ public:
 
     //! Write audio frame.
     virtual void write(audio::Frame& frame);
+
+private:
+    bool setup_buffer_();
+    bool open_(const char* path);
+    void write_(const audio::sample_t* samples, size_t n_samples);
+    void update_header_();
+    void close_();
+
+    FILE* output_file_;
+    WavHeader header_;
+
+    core::Array<audio::sample_t> buffer_;
+    size_t buffer_size_;
+    core::nanoseconds_t frame_length_;
+    audio::SampleSpec sample_spec_;
+
+    bool valid_;
 };
 
 } // namespace sndio
