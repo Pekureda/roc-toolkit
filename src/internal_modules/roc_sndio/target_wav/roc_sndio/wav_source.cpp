@@ -114,12 +114,7 @@ audio::SampleSpec WavSource::sample_spec() const {
     roc_panic_if(!valid_);
 
     if (!file_opened_) {
-        roc_panic(
-            "wav source: sample_spec(): non-open output file or device"); // ASK
-                                                                          // Typo in
-                                                                          // sample_rate()
-                                                                          // in SoX
-                                                                          // ??
+        roc_panic("wav source: sample_spec(): non-open output file or device");
     }
 
     if (wav_.channels == 1) {

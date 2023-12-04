@@ -7,6 +7,7 @@
  */
 
 #include "wav_header.h"
+#include "roc_core/endian_ops.h"
 
 namespace roc {
 namespace sndio {
@@ -14,19 +15,17 @@ namespace sndio {
 WavHeader::WavHeader(uint16_t num_channels,
                      uint32_t sample_rate,
                      uint16_t bits_per_sample)
-    : chunk_id_(0x52494646)     // {'R', 'I', 'F', 'F'}
-    , format_(0x57415645)       // {'W', 'A', 'V', 'E'}
-    , subchunk1_id_(0x666d7420) // {'f', 'm', 't', ' '}
-    , subchunk1_size_(htole32(0x10)) // 16
-    , audio_format_(htole16(0x1)) // No compression
-    , num_channels_(htole16(num_channels))
-    , sample_rate_(htole32(sample_rate))
-    , byte_rate_(htole32(sample_rate * num_channels * (bits_per_sample / 8u)))
-    , block_align_(htole16(num_channels * (bits_per_sample / 8u)))
-    , bits_per_sample_(htole16(bits_per_sample))
-    , subchunk2_id_(0x64617461) /* {'d', 'a', 't', 'a'} */ {
-    // ASK it would make sense to make checks ie. bits per sample must be powers of 2,
-    // starting from 8b
+    : chunk_id_(core::EndianOps::swap_native_be<uint32_t>(0x52494646))     // {'R', 'I', 'F', 'F'}
+    , format_(core::EndianOps::swap_native_be<uint32_t>(0x57415645))       // {'W', 'A', 'V', 'E'}
+    , subchunk1_id_(core::EndianOps::swap_native_be<uint32_t>(0x666d7420)) // {'f', 'm', 't', ' '}
+    , subchunk1_size_(core::EndianOps::swap_native_le<uint16_t>(0x10)) // 16
+    , audio_format_(core::EndianOps::swap_native_le<uint16_t>(0x1)) // No compression
+    , num_channels_(core::EndianOps::swap_native_le(num_channels))
+    , sample_rate_(core::EndianOps::swap_native_le<uint32_t>(sample_rate))
+    , byte_rate_(core::EndianOps::swap_native_le<uint32_t>(sample_rate * num_channels * (bits_per_sample / 8u)))
+    , block_align_(core::EndianOps::swap_native_le<uint16_t>(num_channels * (bits_per_sample / 8u)))
+    , bits_per_sample_(core::EndianOps::swap_native_le<uint16_t>(bits_per_sample))
+    , subchunk2_id_(core::EndianOps::swap_native_be<uint32_t>(0x64617461)) /* {'d', 'a', 't', 'a'} */ {
 }
 
 uint16_t WavHeader::num_channels() const {

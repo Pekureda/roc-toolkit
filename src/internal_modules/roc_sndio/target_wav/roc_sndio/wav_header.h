@@ -13,7 +13,6 @@
 #define ROC_SNDIO_WAV_HEADER_H_
 
 #include "roc_core/stddefs.h"
-#include <endian.h> // ASK
 
 namespace roc {
 namespace sndio {

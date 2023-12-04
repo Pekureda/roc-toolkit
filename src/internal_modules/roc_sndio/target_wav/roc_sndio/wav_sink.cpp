@@ -9,6 +9,7 @@
 #include "roc_sndio/wav_sink.h"
 #include "roc_core/log.h"
 #include "roc_core/panic.h"
+#include "roc_core/endian_ops.h"
 #include "roc_sndio/backend_map.h"
 
 namespace roc {
@@ -18,7 +19,7 @@ WavSink::WavSink(core::IArena& arena, const Config& config)
     : output_file_(NULL)
     , header_(config.sample_spec.num_channels(),
               config.sample_spec.sample_rate(),
-              16) // ASK HARDCODE
+              16)
     , buffer_(arena)
     , buffer_size_(0)
     , valid_(false) {
@@ -78,7 +79,7 @@ DeviceType WavSink::type() const {
 }
 
 DeviceState WavSink::state() const {
-    return DeviceState_Active; // ASK
+    return DeviceState_Active;
 }
 
 void WavSink::pause() {
@@ -86,18 +87,18 @@ void WavSink::pause() {
 }
 
 bool WavSink::resume() {
-    return true; // ASK
+    return true;
 }
 
 bool WavSink::restart() {
-    return true; // ASK
+    return true;
 }
 
 audio::SampleSpec WavSink::sample_spec() const {
     roc_panic_if(!valid_);
 
     if (!output_file_) {
-        roc_panic("wav sink: sample_spec(): non-open output file or device"); // ASK TYPO
+        roc_panic("wav sink: sample_spec(): non-open output file or device");
     }
 
     if (header_.num_channels() == 1) {
@@ -150,7 +151,7 @@ void WavSink::write(audio::Frame& frame) {
 
     while (frame_size > 0) { // ASK how saving should exactly work?
         for (; buffer_pos < buffer_size_ && frame_size > 0; buffer_pos++) {
-            buffer_data[buffer_pos] = htole32(*frame_data); // Is this sufficient?
+            buffer_data[buffer_pos] = core::EndianOps::swap_native_le<audio::sample_t>(*frame_data); // Is this sufficient?
                                                             // Probably channels will be
                                                             // swapped but it's to be
                                                             // checked
