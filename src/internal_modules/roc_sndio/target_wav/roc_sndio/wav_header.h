@@ -7,7 +7,7 @@
  */
 
 //! @file roc_sndio/target_wav/roc_sndio/wav_header.h
-//! @brief TODO.
+//! @brief WAV header.
 
 #ifndef ROC_SNDIO_WAV_HEADER_H_
 #define ROC_SNDIO_WAV_HEADER_H_
@@ -17,16 +17,29 @@
 namespace roc {
 namespace sndio {
 
+//! WAV header
+//! @remarks
+//!  Holds data of a WAV header
+//!  Allows easy generation of WAV header
 class WavHeader {
 public:
+    //! Initialize
     WavHeader(uint16_t num_channels, uint32_t sample_rate, uint16_t bits_per_sample);
     // TODO function to get sequence of bytes to overwrite the header in file. As
     // parameter it should take number of samples written
 
+    //! Get number of channels
     uint16_t num_channels() const;
+
+    //! Get sample rate
     uint32_t sample_rate() const;
+
+    //! Get number of bits per sample
     uint16_t bits_per_sample() const;
 
+    //! Convert header data to byte array
+    //! @remarks
+    //!  User is the owner of the array returned
     char* to_bytes(uint32_t num_samples);
 
 private:
@@ -37,14 +50,14 @@ private:
     // WAVE fmt
     const uint32_t subchunk1_id_;
     const uint32_t subchunk1_size_;
-    const uint16_t audio_format_;   
+    const uint16_t audio_format_;
     const uint16_t num_channels_;
     const uint32_t sample_rate_;
     const uint32_t byte_rate_;
     const uint16_t block_align_;
     const uint16_t bits_per_sample_;
     // WAVE data
-    const uint32_t subchunk2_id_; 
+    const uint32_t subchunk2_id_;
     uint32_t subchunk2_size_;
 };
 

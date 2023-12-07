@@ -33,7 +33,10 @@ public:
     //! Initialize.
     WavSource(core::IArena& arena, const Config& config);
 
-    ~WavSource();
+    virtual ~WavSource();
+
+    //! Check if the object was successfully constructed.
+    bool is_valid() const;
 
     //! Open input file or device.
     //!

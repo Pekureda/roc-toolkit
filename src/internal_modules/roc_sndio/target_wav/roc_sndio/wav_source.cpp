@@ -43,6 +43,10 @@ WavSource::~WavSource() {
     close_();
 }
 
+bool WavSource::is_valid() const {
+    return valid_;
+}
+
 bool WavSource::open(const char* path) {
     roc_panic_if(!valid_);
 
@@ -178,14 +182,7 @@ bool WavSource::read(audio::Frame& frame) {
             n_samples = buffer_size_;
         }
 
-        // n_samples = drwav_read_pcm_frames(&wav_, n_samples, buffer_data); // Convert
-        // s16/s32/f32?
-        n_samples =
-            drwav_read_pcm_frames_f32(&wav_, n_samples, buffer_data); // Conveniently
-                                                                      // I do not
-                                                                      // need to
-                                                                      // convert
-                                                                      // manually
+        n_samples = drwav_read_pcm_frames_f32(&wav_, n_samples, buffer_data);
         if (n_samples == 0) {
             roc_log(LogDebug, "wav source: got eof from wav");
             eof_ = true;

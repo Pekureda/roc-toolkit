@@ -12,20 +12,27 @@
 namespace roc {
 namespace sndio {
 
+namespace {
+using core::EndianOps;
+}
+
 WavHeader::WavHeader(uint16_t num_channels,
                      uint32_t sample_rate,
                      uint16_t bits_per_sample)
-    : chunk_id_(core::EndianOps::swap_native_be<uint32_t>(0x52494646))     // {'R', 'I', 'F', 'F'}
-    , format_(core::EndianOps::swap_native_be<uint32_t>(0x57415645))       // {'W', 'A', 'V', 'E'}
-    , subchunk1_id_(core::EndianOps::swap_native_be<uint32_t>(0x666d7420)) // {'f', 'm', 't', ' '}
-    , subchunk1_size_(core::EndianOps::swap_native_le<uint16_t>(0x10)) // 16
-    , audio_format_(core::EndianOps::swap_native_le<uint16_t>(0x1)) // No compression
-    , num_channels_(core::EndianOps::swap_native_le(num_channels))
-    , sample_rate_(core::EndianOps::swap_native_le<uint32_t>(sample_rate))
-    , byte_rate_(core::EndianOps::swap_native_le<uint32_t>(sample_rate * num_channels * (bits_per_sample / 8u)))
-    , block_align_(core::EndianOps::swap_native_le<uint16_t>(num_channels * (bits_per_sample / 8u)))
-    , bits_per_sample_(core::EndianOps::swap_native_le<uint16_t>(bits_per_sample))
-    , subchunk2_id_(core::EndianOps::swap_native_be<uint32_t>(0x64617461)) /* {'d', 'a', 't', 'a'} */ {
+    : chunk_id_(EndianOps::swap_native_be<uint32_t>(0x52494646))     // {'R','I','F','F'}
+    , format_(EndianOps::swap_native_be<uint32_t>(0x57415645))       // {'W','A','V','E'}
+    , subchunk1_id_(EndianOps::swap_native_be<uint32_t>(0x666d7420)) // {'f','m','t',''}
+    , subchunk1_size_(EndianOps::swap_native_le<uint16_t>(0x20))     // 32
+    , audio_format_(EndianOps::swap_native_le<uint16_t>(0x1))        // No compression
+    , num_channels_(EndianOps::swap_native_le(num_channels))
+    , sample_rate_(EndianOps::swap_native_le<uint32_t>(sample_rate))
+    , byte_rate_(EndianOps::swap_native_le<uint32_t>(sample_rate * num_channels
+                                                     * (bits_per_sample / 8u)))
+    , block_align_(
+          EndianOps::swap_native_le<uint16_t>(num_channels * (bits_per_sample / 8u)))
+    , bits_per_sample_(EndianOps::swap_native_le<uint16_t>(bits_per_sample))
+    , subchunk2_id_(
+          EndianOps::swap_native_be<uint32_t>(0x64617461)) /* {'d','a','t','a'} */ {
 }
 
 uint16_t WavHeader::num_channels() const {
@@ -41,8 +48,8 @@ uint16_t WavHeader::bits_per_sample() const {
 }
 
 // NOTE Each sample is 4B -> that is expected
-char* WavHeader::to_bytes(uint32_t num_samples) { // TODO may be optimized but let's leave
-                                                  // it simple for now
+char* WavHeader::to_bytes(uint32_t num_samples) {
+    // TODO may be optimized but let's leave it simple for now
     subchunk2_size_ = num_samples * num_channels_ * (bits_per_sample_ / 8u);
     chunk_size_ = 36u + subchunk2_size_;
 
