@@ -59,7 +59,7 @@ bool WavSink::open(const char* path) {
 
     roc_log(LogDebug, "wav sink: opening: path=%s", path);
 
-    if (!output_file_) {
+    if (output_file_ != NULL) {
         roc_panic("wav sink: can't call open() more than once");
     }
 

@@ -26,9 +26,7 @@
 #include "roc_sndio/sox_backend.h"
 #endif // ROC_TARGET_SOX
 
-#ifdef ROC_TARGET_WAV
 #include "roc_sndio/wav_backend.h"
-#endif // ROC_TARGET_WAV
 
 namespace roc {
 namespace sndio {
@@ -72,6 +70,8 @@ private:
 #ifdef ROC_TARGET_SOX
     core::Optional<SoxBackend> sox_backend_;
 #endif // ROC_TARGET_SOX
+
+    core::Optional<WavBackend> wav_backend_;
 
     core::Array<IBackend*, MaxBackends> backends_;
     core::Array<DriverInfo, MaxDrivers> drivers_;

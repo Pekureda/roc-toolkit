@@ -25,12 +25,8 @@ void WavBackend::discover_drivers(core::Array<DriverInfo, MaxDrivers>& driver_li
         roc_panic("wav backend: can't grow drivers array");
     }
 
-    // ASK Have absolutely no idea what the arguments should be
-    // Followed pulse audio impl more
     driver_list.push_back(DriverInfo("wav", DriverType_File,
-                                     DriverFlag_IsDefault | DriverFlag_IsDefault
-                                         | DriverFlag_SupportsSink
-                                         | DriverFlag_SupportsSource,
+                                     DriverFlag_SupportsSink | DriverFlag_SupportsSource,
                                      this));
 }
 

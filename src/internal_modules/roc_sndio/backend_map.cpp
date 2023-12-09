@@ -50,6 +50,8 @@ void BackendMap::register_backends_() {
         roc_panic("backend map: can't grow backends array");
     }
 
+    wav_backend_.reset(new (wav_backend_) WavBackend);
+    backends_.push_back(wav_backend_.get());
 #ifdef ROC_TARGET_PULSEAUDIO
     pulseaudio_backend_.reset(new (pulseaudio_backend_) PulseaudioBackend);
     backends_.push_back(pulseaudio_backend_.get());
@@ -58,9 +60,6 @@ void BackendMap::register_backends_() {
     sox_backend_.reset(new (sox_backend_) SoxBackend);
     backends_.push_back(sox_backend_.get());
 #endif // ROC_TARGET_SOX
-#ifdef ROC_TARGET_WAV
-// TODO
-#endif // ROC_TARGET_WAV
 }
 
 void BackendMap::register_drivers_() {

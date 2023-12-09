@@ -6,7 +6,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-//! @file roc_sndio/target_wav/roc_sndio/wav_source.h
+//! @file roc_sndio/wav_source.h
 //! @brief WAV source.
 
 #ifndef ROC_SNDIO_WAV_SOURCE_H_

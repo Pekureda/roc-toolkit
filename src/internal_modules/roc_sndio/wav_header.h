@@ -6,7 +6,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-//! @file roc_sndio/target_wav/roc_sndio/wav_header.h
+//! @file roc_sndio/wav_header.h
 //! @brief WAV header.
 
 #ifndef ROC_SNDIO_WAV_HEADER_H_
@@ -25,8 +25,6 @@ class WavHeader {
 public:
     //! Initialize
     WavHeader(uint16_t num_channels, uint32_t sample_rate, uint16_t bits_per_sample);
-    // TODO function to get sequence of bytes to overwrite the header in file. As
-    // parameter it should take number of samples written
 
     //! Get number of channels
     uint16_t num_channels() const;
