@@ -85,6 +85,9 @@ private:
     bool open_();
     void close_();
     bool setup_buffer_();
+    size_t calculate_buffer_size_(const float frame_length,
+                                  const uint32_t sample_rate,
+                                  const uint32_t num_channels) const;
     bool seek_(drwav_uint64 target_frame_index);
 
     core::StringBuffer input_name_;

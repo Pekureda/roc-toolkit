@@ -81,6 +81,9 @@ public:
 
 private:
     bool setup_buffer_();
+    size_t calculate_buffer_size_(const float frame_length,
+                                  const uint32_t sample_rate,
+                                  const uint32_t num_channels) const;
     bool open_(const char* path);
     void write_(const audio::sample_t* samples, size_t n_samples);
     void update_header_();

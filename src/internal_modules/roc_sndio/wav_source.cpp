@@ -21,7 +21,7 @@ WavSource::WavSource(core::IArena& arena, const Config& config)
     , eof_(false)
     , paused_(false)
     , valid_(false) {
-    BackendMap::instance(); // Is there any reason it should be there as in SoX?
+    BackendMap::instance();
 
     if (config.sample_spec.num_channels() == 0) {
         roc_log(LogError, "wav source: # of channels is zero");
@@ -258,18 +258,7 @@ void WavSource::close_() {
 }
 
 bool WavSource::setup_buffer_() {
-    const float total_samples =
-        roundf(float(frame_length_) / core::Second * wav_.sampleRate * wav_.channels);
-    const size_t min_val = 0; // ROC_MIN_OF(size_t);
-    const size_t max_val = ROC_MAX_OF(size_t);
-
-    if (total_samples * wav_.channels <= min_val) {
-        buffer_size_ = min_val / wav_.channels * wav_.channels; // 0
-    } else if (total_samples * wav_.channels >= (float)max_val) {
-        buffer_size_ = max_val / wav_.channels * wav_.channels;
-    } else {
-        buffer_size_ = (size_t)total_samples * wav_.channels;
-    }
+    buffer_size_ = calculate_buffer_size_(frame_length_, wav_.sampleRate, wav_.channels);
 
     if (buffer_size_ == 0) {
         roc_log(LogError, "wav source: buffer size is zero");
@@ -281,6 +270,27 @@ bool WavSource::setup_buffer_() {
     }
 
     return true;
+}
+
+// This implementation should be kept consistent with SampleSpec's ns_2_samples_overall
+// method
+size_t WavSource::calculate_buffer_size_(const float frame_length,
+                                         const uint32_t sample_rate,
+                                         const uint32_t num_channels) const {
+    size_t buffer_size = 0;
+    const float total_samples =
+        roundf(float(frame_length) / core::Second * sample_rate * num_channels);
+    const size_t min_val = 0; // ROC_MIN_OF(size_t);
+    const size_t max_val = ROC_MAX_OF(size_t);
+
+    if (total_samples * num_channels <= min_val) {
+        buffer_size = min_val / num_channels * num_channels; // 0
+    } else if (total_samples * num_channels >= (float)max_val) {
+        buffer_size = max_val / num_channels * num_channels;
+    } else {
+        buffer_size = (size_t)total_samples * num_channels;
+    }
+    return buffer_size;
 }
 
 bool WavSource::seek_(drwav_uint64 target_frame_index) {
