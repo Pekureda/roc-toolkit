@@ -35,6 +35,9 @@ public:
     //! Get number of bits per sample
     uint16_t bits_per_sample() const;
 
+    //! Resets samples counter
+    void reset_sample_counter(uint32_t num_samples);
+
     //! Convert header data to byte array
     //! @remarks
     //!  User is the owner of the array returned
@@ -57,6 +60,9 @@ private:
     // WAVE data
     const uint32_t subchunk2_id_;
     uint32_t subchunk2_size_;
+
+    // Help data
+    uint32_t num_samples_;
 };
 
 } // namespace sndio

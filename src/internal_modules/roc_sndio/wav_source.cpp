@@ -35,7 +35,6 @@ WavSource::WavSource(core::IArena& arena, const Config& config)
 
     frame_length_ = config.frame_length;
     roc_log(LogInfo, "DEBUG: frame_length: %ld", frame_length_);
-    sample_spec_ = config.sample_spec;
 
     if (frame_length_ == 0) {
         roc_log(LogError, "wav source: frame length is zero");
@@ -137,7 +136,6 @@ audio::SampleSpec WavSource::sample_spec() const {
                                  audio::ChanOrder_Smpte, audio::ChanMask_Surround_Stereo);
     }
 
-    // TODO consider more channels
     roc_panic("wav source: unsupported channel count");
 }
 
@@ -191,18 +189,21 @@ bool WavSource::read(audio::Frame& frame) {
         if (n_samples > buffer_size_) {
             n_samples = buffer_size_;
         }
-        
-        drwav_uint64 frames_read = drwav_read_pcm_frames_f32(&wav_, n_samples, buffer_data);
-        if (frames_read < n_samples) {
+
+        // REMARK - Pulseaudio seems to not handle mono files properly and the playback
+        // seems to be at 2x speed. Probably inerpretes 2 mono frames as 1 stereo
+        n_samples =
+            drwav_read_pcm_frames_f32(&wav_, n_samples / wav_.channels, buffer_data)
+            * wav_.channels;
+        if (n_samples == 0) {
             roc_log(LogDebug, "wav source: got eof from wav");
             eof_ = true;
             break;
         }
 
-        memcpy(frame_data, buffer_data, frames_read * sizeof(audio::sample_t));
-
-        frame_data += frames_read;
-        frame_left -= frames_read;
+        memcpy(frame_data, buffer_data, n_samples * sizeof(audio::sample_t));
+        frame_data += n_samples;
+        frame_left -= n_samples;
     }
 
     if (frame_left == frame.num_samples()) {
@@ -237,19 +238,6 @@ bool WavSource::open_() {
         return false;
     }
 
-    if (wav_.sampleRate != sample_spec_.sample_rate()) {
-        roc_log(LogError,
-                "wav source: requested sampling rate %lu but file has %lu: input=%s",
-                (unsigned long)sample_spec_.sample_rate(), (unsigned long)wav_.sampleRate,
-                input_name_.c_str());
-        close_();
-        return false;
-    }
-
-    sample_spec_.channel_set().set_channel_range(
-        0, sample_spec_.channel_set().max_channels() - 1, false);
-    sample_spec_.channel_set().set_channel_range(0, wav_.channels, true);
-
     roc_log(LogInfo,
             "wav source:"
             " in_bits=%lu out_bits=%lu in_rate=%lu out_rate=%lu"
@@ -267,16 +255,13 @@ void WavSource::close_() {
     }
 
     file_opened_ = false;
-    // TODO make sure it's everything that must be done to close
     drwav_uninit(&wav_);
 }
 
 bool WavSource::setup_buffer_() {
-    // TODO the logic below can be extracted to helper method at least, consider TODO
-    // below
     const float total_samples =
         roundf(float(frame_length_) / core::Second * wav_.sampleRate * wav_.channels);
-    const size_t min_val = ROC_MIN_OF(size_t);
+    const size_t min_val = 0; // ROC_MIN_OF(size_t);
     const size_t max_val = ROC_MAX_OF(size_t);
 
     if (total_samples * wav_.channels <= min_val) {
@@ -284,17 +269,8 @@ bool WavSource::setup_buffer_() {
     } else if (total_samples * wav_.channels >= (float)max_val) {
         buffer_size_ = max_val / wav_.channels * wav_.channels;
     } else {
-        buffer_size_ = (size_t)total_samples * wav_.channels; // TODO see if this logic is
-                                                              // sufficient - Change will
-                                                              // probably require
-                                                              // tinkering with SampleSpec
-                                                              // but let's skip it at this
-                                                              // point
+        buffer_size_ = (size_t)total_samples * wav_.channels;
     }
-    // buffer_size_ = sample_spec_.ns_2_samples_overall(frame_length_); // TODO check later
-    //                                                                  // if it properly
-    //                                                                  // converts. If not
-    //                                                                  // try code above
 
     if (buffer_size_ == 0) {
         roc_log(LogError, "wav source: buffer size is zero");

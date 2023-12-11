@@ -21,9 +21,9 @@ WavHeader::WavHeader(uint16_t num_channels,
                      uint16_t bits_per_sample)
     : chunk_id_(EndianOps::swap_native_be<uint32_t>(0x52494646))     // {'R','I','F','F'}
     , format_(EndianOps::swap_native_be<uint32_t>(0x57415645))       // {'W','A','V','E'}
-    , subchunk1_id_(EndianOps::swap_native_be<uint32_t>(0x666d7420)) // {'f','m','t',''}
-    , subchunk1_size_(EndianOps::swap_native_le<uint16_t>(0x20))     // 32
-    , audio_format_(EndianOps::swap_native_le<uint16_t>(0x1))        // No compression
+    , subchunk1_id_(EndianOps::swap_native_be<uint32_t>(0x666d7420)) // {'f','m','t',' '}
+    , subchunk1_size_(EndianOps::swap_native_le<uint16_t>(0x10))     // 16
+    , audio_format_(EndianOps::swap_native_le<uint16_t>(0x3))        // IEEE Float
     , num_channels_(EndianOps::swap_native_le(num_channels))
     , sample_rate_(EndianOps::swap_native_le<uint32_t>(sample_rate))
     , byte_rate_(EndianOps::swap_native_le<uint32_t>(sample_rate * num_channels
@@ -47,13 +47,16 @@ uint16_t WavHeader::bits_per_sample() const {
     return bits_per_sample_;
 }
 
-// NOTE Each sample is 4B -> that is expected
+void WavHeader::reset_sample_counter(uint32_t num_samples) {
+    num_samples_ = num_samples;
+}
+
 char* WavHeader::to_bytes(uint32_t num_samples) {
-    // TODO may be optimized but let's leave it simple for now
-    subchunk2_size_ = num_samples * num_channels_ * (bits_per_sample_ / 8u);
+    num_samples_ += num_samples;
+    subchunk2_size_ = num_samples_ * num_channels_ * (bits_per_sample_ / 8u);
     chunk_size_ = 36u + subchunk2_size_;
 
-    char* header_data = new char[sizeof(WavHeader)];
+    char* header_data = new char[44u];
     uint32_t offset = 0;
 
     memcpy(header_data + offset, &chunk_id_, sizeof(chunk_id_));
@@ -79,6 +82,8 @@ char* WavHeader::to_bytes(uint32_t num_samples) {
     memcpy(header_data + offset, &bits_per_sample_, sizeof(bits_per_sample_));
     offset += sizeof(bits_per_sample_);
     memcpy(header_data + offset, &subchunk2_id_, sizeof(subchunk2_id_));
+    offset += sizeof(subchunk2_id_);
+    memcpy(header_data + offset, &subchunk2_size_, sizeof(subchunk2_size_));
 
     return header_data;
 }

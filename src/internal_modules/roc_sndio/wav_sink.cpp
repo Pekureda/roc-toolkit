@@ -17,9 +17,7 @@ namespace sndio {
 
 WavSink::WavSink(core::IArena& arena, const Config& config)
     : output_file_(NULL)
-    , header_(config.sample_spec.num_channels(),
-              config.sample_spec.sample_rate(),
-              32) // ASK where to source bits per s?
+    , header_(config.sample_spec.num_channels(), config.sample_spec.sample_rate(), 32)
     , buffer_(arena)
     , buffer_size_(0)
     , valid_(false) {
@@ -36,7 +34,6 @@ WavSink::WavSink(core::IArena& arena, const Config& config)
     }
 
     frame_length_ = config.frame_length;
-    sample_spec_ = config.sample_spec;
 
     if (frame_length_ == 0) {
         roc_log(LogError, "wav sink: frame length is zero");
@@ -117,6 +114,12 @@ audio::SampleSpec WavSink::sample_spec() const {
 }
 
 core::nanoseconds_t WavSink::latency() const {
+    roc_panic_if(!valid_);
+
+    if (!output_file_) {
+        roc_panic("wav sink: latency(): non-open output file");
+    }
+
     return 0;
 }
 
@@ -124,7 +127,7 @@ bool WavSink::has_latency() const {
     roc_panic_if(!valid_);
 
     if (!output_file_) {
-        roc_panic("wav sink: has_latency(): non-open output file or device");
+        roc_panic("wav sink: has_latency(): non-open output file");
     }
 
     return false;
@@ -134,7 +137,7 @@ bool WavSink::has_clock() const {
     roc_panic_if(!valid_);
 
     if (!output_file_) {
-        roc_panic("wav sink: has_clock(): non-open output file or device");
+        roc_panic("wav sink: has_clock(): non-open output file");
     }
 
     return false;
@@ -149,13 +152,9 @@ void WavSink::write(audio::Frame& frame) {
     audio::sample_t* buffer_data = buffer_.data();
     size_t buffer_pos = 0;
 
-    while (frame_size > 0) { // ASK how saving should exactly work?
+    while (frame_size > 0) {
         for (; buffer_pos < buffer_size_ && frame_size > 0; buffer_pos++) {
-            buffer_data[buffer_pos] = core::EndianOps::swap_native_le<audio::sample_t>(
-                *frame_data); // Is this sufficient?
-                              // Probably channels will be
-                              // swapped but it's to be
-                              // checked
+            buffer_data[buffer_pos] = *frame_data;
             frame_data++;
             frame_size--;
         }
@@ -170,7 +169,19 @@ void WavSink::write(audio::Frame& frame) {
 }
 
 bool WavSink::setup_buffer_() {
-    buffer_size_ = sample_spec_.ns_2_samples_overall(frame_length_);
+    const float total_samples =
+        roundf(float(frame_length_) / core::Second * header_.sample_rate() * header_.num_channels());
+    const size_t min_val = 0; // ROC_MIN_OF(size_t);
+    const size_t max_val = ROC_MAX_OF(size_t);
+
+    if (total_samples * header_.num_channels() <= min_val) {
+        buffer_size_ = min_val / header_.num_channels() * header_.num_channels(); // 0
+    } else if (total_samples * header_.num_channels() >= (float)max_val) {
+        buffer_size_ = max_val /header_.num_channels() * header_.num_channels();
+    } else {
+        buffer_size_ = (size_t)total_samples * header_.num_channels();
+    }
+
     if (buffer_size_ == 0) {
         roc_log(LogError, "wav sink: buffer size is zero");
         return false;
@@ -184,26 +195,11 @@ bool WavSink::setup_buffer_() {
 }
 
 bool WavSink::open_(const char* path) {
-    output_file_ = fopen(path, "w"); // TODO check w+ if needed
+    output_file_ = fopen(path, "w");
     if (!output_file_) {
         roc_log(LogDebug, "wav sink: can't open: path=%s", path);
         return false;
     }
-
-    // TODO Check if this is out of concern, but probably is -> any coversion?
-    // unsigned long in_rate = (unsigned long)out_signal_.rate;
-    // unsigned long out_rate = (unsigned long)output_->signal.rate;
-
-    // if (in_rate != 0 && in_rate != out_rate) {
-    //     roc_log(LogError,
-    //             "sox sink:"
-    //             " can't open output file or device with the required sample rate:"
-    //             " required_by_output=%lu requested_by_user=%lu",
-    //             out_rate, in_rate);
-    //     return false;
-    // }
-
-    // sample_spec_.set_sample_rate((unsigned long)output_->signal.rate);
 
     roc_log(LogInfo,
             "wav sink:"
@@ -220,10 +216,10 @@ void WavSink::write_(const audio::sample_t* samples, size_t n_samples) {
         if (fseek(output_file_, 0, SEEK_SET) != 0) {
             roc_log(LogError, "wav sink: failed to seek to the beginning of the file");
         }
-
+        const size_t wav_header_size = 44;
         char* header_bytes = header_.to_bytes(n_samples);
-        if (fwrite(header_bytes, 1, sizeof(WavHeader), output_file_)
-            != sizeof(WavHeader)) {
+        if (fwrite(header_bytes, sizeof(char), wav_header_size, output_file_)
+            != wav_header_size) {
             roc_log(LogError, "wav sink: failed to write header");
         }
         delete[] header_bytes;

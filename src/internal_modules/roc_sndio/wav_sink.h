@@ -92,7 +92,6 @@ private:
     core::Array<audio::sample_t> buffer_;
     size_t buffer_size_;
     core::nanoseconds_t frame_length_;
-    audio::SampleSpec sample_spec_;
 
     bool valid_;
 };

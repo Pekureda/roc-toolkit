@@ -45,7 +45,7 @@ public:
     //!
     //! @remarks
     //!  If @p path is NULL, defaults are used.
-    bool open(const char* path); // ASK What are those defaults?
+    bool open(const char* path);
 
     //! Get device type.
     virtual DeviceType type() const;
@@ -85,18 +85,14 @@ private:
     bool open_();
     void close_();
     bool setup_buffer_();
-    bool seek_(drwav_uint64 target_frame_index); // TODO Probably should be renamed to
-                                                 // something closer to at_ or
-                                                 // go_to_index_
+    bool seek_(drwav_uint64 target_frame_index);
 
     core::StringBuffer input_name_;
     drwav wav_;
 
-    core::Array<audio::sample_t> buffer_; // TODO Consider static assert with float type
-                                          // in case anything changes
+    core::Array<audio::sample_t> buffer_;
     size_t buffer_size_;
     core::nanoseconds_t frame_length_;
-    audio::SampleSpec sample_spec_;
 
     bool file_opened_;
     bool eof_;
