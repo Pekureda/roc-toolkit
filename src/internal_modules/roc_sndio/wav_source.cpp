@@ -34,7 +34,6 @@ WavSource::WavSource(core::IArena& arena, const Config& config)
     }
 
     frame_length_ = config.frame_length;
-    roc_log(LogInfo, "DEBUG: frame_length: %ld", frame_length_);
 
     if (frame_length_ == 0) {
         roc_log(LogError, "wav source: frame length is zero");
